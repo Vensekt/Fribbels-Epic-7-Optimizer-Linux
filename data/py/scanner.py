@@ -62,14 +62,29 @@ def check_packet(packet):
 def terminate():
     os._exit(0)
 
+def _pickable_ifaces():
+    # On Linux, multi-interface sniff() bombs out silently if any virtual
+    # interface (loopback, docker, libvirt, veth) is in the list. Filter to
+    # physical-ish interfaces by name pattern.
+    skip_prefixes = ('lo', 'docker', 'br-', 'veth', 'virbr', 'tun', 'tap')
+    names = []
+    for i in get_working_ifaces():
+        n = getattr(i, 'name', str(i))
+        if n.startswith(skip_prefixes):
+            continue
+        names.append(n)
+    return names or [get_working_ifaces()[0].name]
+
 def thread_sniff():
     try:
-        # EpicSeven traffic was confirmed to travel over tcp port 3333 via Wireshark
-        # Omitting sniff() iface parameter to force all interfaces to be sniffed.
-        # This may lead to more processing but prevents needing to specify an network interface manually in some cases.
-        sniff(iface=get_working_ifaces(), prn=lambda x: check_packet(x), filter="tcp and ( port 5222 or port 3333 )", session=TCPSession)
-    except:
-        pass
+        # EpicSeven traffic was confirmed to travel over tcp port 3333 via Wireshark.
+        # Pass interface names (strings) and exclude virtual interfaces so Linux
+        # hotspot setups capture phone traffic reliably.
+        ifaces = _pickable_ifaces()
+        print("scanner: sniffing on", ifaces, file=sys.stderr)
+        sniff(iface=ifaces, prn=lambda x: check_packet(x), filter="tcp and ( port 5222 or port 3333 )", session=TCPSession)
+    except Exception as e:
+        print("scanner: sniff failed:", e, file=sys.stderr)
 
 x = threading.Thread(target=thread_sniff)
 x.daemon = True;
