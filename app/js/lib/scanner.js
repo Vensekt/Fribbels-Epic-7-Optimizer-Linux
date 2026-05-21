@@ -289,6 +289,8 @@ async function finishedReading(data, scanType) {
         if (data.length == 0) {
             if (Files.isMac()) {
                 Dialog.htmlError("The scanner did not find any data. Please check that you have <a href='https://github.com/fribbels/Fribbels-Epic-7-Optimizer#using-the-auto-importer'>Python and Wireshark installed</a> correctly, then try again.")
+            } else if (Files.isLinux()) {
+                Dialog.htmlError("The scanner did not find any data. Please check that you have Python, Scapy, and libpcap installed, and that the python binary has CAP_NET_RAW capability (see linux-support docs), then try again.")
             } else {
                 Dialog.htmlError("The scanner did not find any data. Please check that you have <a href='https://github.com/fribbels/Fribbels-Epic-7-Optimizer#using-the-auto-importer'>Python and Npcap installed</a> correctly, then try again.")
             }

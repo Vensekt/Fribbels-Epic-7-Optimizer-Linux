@@ -65,16 +65,31 @@ module.exports = {
         return os.platform() == 'darwin';
     },
 
-    path: (path) => {
-        return module.exports.isMac() ?
-                path.replace(/\//g, "/") :
-                path.replace(/\//g, "\\");
+    isLinux: () => {
+        return os.platform() == 'linux';
+    },
+
+    isWindows: () => {
+        return os.platform() == 'win32';
+    },
+
+    path: (p) => {
+        return module.exports.isWindows() ?
+                p.replace(/\//g, "\\") :
+                p.replace(/\//g, "/");
     },
 
     getRootPath: () => {
         if (os.platform() == 'darwin') {
             if (__dirname.includes('app.asar')) {
                 return path.resolve(remote.app.getAppPath(), '../../');
+            }
+            return path.resolve(remote.app.getAppPath(), '../');
+        }
+
+        if (os.platform() == 'linux') {
+            if (__dirname.includes('app.asar')) {
+                return path.dirname(remote.app.getPath("exe"));
             }
             return path.resolve(remote.app.getAppPath(), '../');
         }
