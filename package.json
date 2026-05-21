@@ -110,7 +110,8 @@
         "rpm",
         "AppImage"
       ],
-      "category": "Development"
+      "category": "Development",
+      "maintainer": "Vensekt <ethorium13@gmail.com>"
     },
     "directories": {
       "buildResources": "resources",
