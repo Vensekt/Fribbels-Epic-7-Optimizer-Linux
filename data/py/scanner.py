@@ -63,9 +63,15 @@ def terminate():
     os._exit(0)
 
 def _pickable_ifaces():
-    # On Linux, multi-interface sniff() bombs out silently if any virtual
-    # interface (loopback, docker, libvirt, veth) is in the list. Filter to
-    # physical-ish interfaces by name pattern.
+    # On Linux, multi-interface sniff() can include the same TCP stream
+    # twice when a hotspot is active (once on the wifi iface from the
+    # client and again on the upstream iface after NAT), which confuses
+    # stream reassembly. Allow an override via env var; otherwise prefer
+    # a single wireless interface if available, falling back to ethernet.
+    override = os.environ.get('FRIBBELS_SCAN_IFACE')
+    if override:
+        return [override]
+
     skip_prefixes = ('lo', 'docker', 'br-', 'veth', 'virbr', 'tun', 'tap')
     names = []
     for i in get_working_ifaces():
@@ -73,6 +79,13 @@ def _pickable_ifaces():
         if n.startswith(skip_prefixes):
             continue
         names.append(n)
+
+    # Prefer wireless (wl*, wlan*, wlp*) when present — that's the
+    # hotspot interface where phone traffic shows up uniquely.
+    wireless = [n for n in names if n.startswith(('wl', 'wlan', 'wlp'))]
+    if wireless:
+        return wireless[:1]
+
     return names or [get_working_ifaces()[0].name]
 
 def thread_sniff():
