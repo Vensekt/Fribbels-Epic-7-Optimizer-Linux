@@ -59,6 +59,41 @@ yarn dev      # in one terminal
 yarn start    # in another
 ```
 
+## Scanning from a phone (recommended setup)
+
+Linux desktops with NetworkManager can host a Wi-Fi hotspot directly,
+which avoids the need for an Android emulator entirely:
+
+```bash
+nmcli device wifi hotspot ssid E7Hotspot password "yourpassword123"
+```
+
+Connect your phone to that SSID, then start the scan and load Epic 7.
+
+## Network interface selection
+
+The bundled scanner sniffs TCP ports 5222 and 3333 for Epic 7 traffic.
+On Linux the selection logic is:
+
+1. If `FRIBBELS_SCAN_IFACE` env var is set, use that interface only.
+2. Otherwise, prefer the first wireless interface found (`wl*`, `wlan*`,
+   `wlp*`). This avoids double-capture when a Wi-Fi hotspot is active
+   — the same phone-to-server stream appears once on the wireless iface
+   (pre-NAT, with the phone's IP) and again on the upstream iface
+   (post-NAT). Sniffing both interfaces feeds the parser interleaved
+   streams it can't reassemble.
+3. If no wireless iface is present, fall back to all non-virtual
+   interfaces (skipping `lo`, `docker*`, `br-*`, `veth*`, `virbr*`,
+   `tun*`, `tap*`).
+
+To force a specific interface:
+
+```bash
+FRIBBELS_SCAN_IFACE=wlp3s0 ./FribbelsE7Optimizer-*.AppImage
+```
+
+Find your interfaces with `ip -br link`.
+
 ## What was changed for Linux
 
 - `app/js/lib/files.js` — path separator handling no longer assumes
@@ -67,9 +102,13 @@ yarn start    # in another
 - `app/js/lib/ocr/ocr.js` — uses `path.sep` instead of hardcoded `\\`.
 - `app/js/lib/scanner.js` — Linux-aware error dialog when no packets
   are captured.
+- `data/py/scanner.py` — interface selection logic described above,
+  plus surface sniff errors to stderr instead of swallowing them.
+- `package.json` — Linux build target with `.desktop` entries (Game
+  category, keywords) and icon registration so the deb/rpm/AppImage
+  integrate with desktop environments.
 
-The Java backend, Python scanner, and Electron shell were already
-cross-platform.
+The Java backend and Electron shell were already cross-platform.
 
 ## Known issues
 
@@ -78,3 +117,8 @@ cross-platform.
   or pass `--no-sandbox` at launch.
 - If `setcap` is unset, Scapy will silently capture nothing — the
   no-data dialog will fire.
+- If you have a wireless interface but the phone is connected to your
+  router instead of a PC-hosted hotspot (i.e., the phone traffic isn't
+  routed through your PC at all), set `FRIBBELS_SCAN_IFACE` to whichever
+  interface your PC uses to reach the same subnet — sniffing your PC's
+  Wi-Fi won't see traffic between phone and router.

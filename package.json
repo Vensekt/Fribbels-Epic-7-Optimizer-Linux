@@ -110,8 +110,17 @@
         "rpm",
         "AppImage"
       ],
-      "category": "Development",
-      "maintainer": "Vensekt <ethorium13@gmail.com>"
+      "category": "Game",
+      "synopsis": "Gear optimizer for Epic Seven",
+      "description": "Fribbels Epic 7 Optimizer — imports gear from the game via packet capture and finds optimal gear combinations for your heroes.",
+      "maintainer": "Vensekt <ethorium13@gmail.com>",
+      "icon": "resources/icons",
+      "desktop": {
+        "Name": "Fribbels E7 Optimizer",
+        "Comment": "Gear optimizer for Epic Seven",
+        "Categories": "Game;Utility;",
+        "Keywords": "epic7;e7;gear;optimizer;rpg;"
+      }
     },
     "directories": {
       "buildResources": "resources",
