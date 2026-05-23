@@ -298,58 +298,73 @@ async function finishedReading(data, scanType) {
             return;
         }
 
-        // Send the full data set first (this is the historical behavior and
-        // gives us the units/heroes list). The API merges all buffers and
-        // returns a single equips list; when later screens emit a filtered
-        // "current view" response, that response can overwrite the bulk
-        // gear dump, capping the visible item count well below the user's
-        // actual inventory. To work around that, after the bulk call we
-        // also call the API once per buffer and union the equips by id.
-        const response = await postData(api + '/getItems', {
-            data: data
-        });
-        console.log(response);
+        // The upstream API merges all captured buffers into one parse.
+        // Small "current view" buffers emitted when navigating screens
+        // (e.g. opening Gear inventory) can interleave with the bulk
+        // gear dump from login and break the parser, dropping items
+        // well below the user's actual inventory (observed ~2000 items
+        // -> ~576 when the scan crossed past the lobby).
+        //
+        // Strategy: send the full data set first, then also send a
+        // "large buffers only" subset that drops the small noise, then
+        // pick whichever response yielded more items. Per-buffer fan-out
+        // doesn't help because the gear payload spans multiple buffers
+        // and only parses when its neighbors are present.
+        async function callApi(buffers) {
+            try {
+                const r = await postData(api + '/getItems', { data: buffers });
+                if (r && r.status === "SUCCESS") return r;
+            } catch (e) {
+                console.warn("getItems call failed:", e);
+            }
+            return null;
+        }
+        function countFound(r) {
+            const equips = (r && r.data) || [];
+            return equips.filter(x => !!x.f).length;
+        }
+
+        const candidates = [];
+        const bulkResp = await callApi(data);
+        if (bulkResp) candidates.push({ label: "full", resp: bulkResp });
+        console.log(`Bulk response: found=${countFound(bulkResp)} total=${(bulkResp?.data || []).length}`);
+
+        if (data.length > 2) {
+            // Sort buffer indices by length descending, then try cumulative
+            // top-K subsets. The bulk gear dump is concentrated in the
+            // largest 1-3 buffers; dropping the tail often restores items
+            // the small "current view" buffers were knocking out.
+            const ordered = data
+                .map((b, i) => ({ b, i, len: b.length }))
+                .sort((a, b) => b.len - a.len);
+
+            for (const k of [Math.max(1, Math.ceil(data.length * 0.5)), 3, 2, 1]) {
+                if (k >= data.length) continue;
+                const subset = ordered.slice(0, k).map(x => x.b);
+                const r = await callApi(subset);
+                if (r) {
+                    candidates.push({ label: `top-${k}`, resp: r });
+                    console.log(`Top-${k} subset: found=${countFound(r)} total=${(r.data || []).length}`);
+                }
+            }
+        }
+
+        const best = candidates.sort((a, b) => countFound(b.resp) - countFound(a.resp))[0];
+        if (!best) {
+            // None of the API calls returned SUCCESS — fall back to the
+            // original failure path below by faking the bulk response.
+        }
+        const response = best ? best.resp : (bulkResp || { status: "ERROR" });
+        console.log(`Picked subset: ${best?.label}, items: ${countFound(response)}`);
 
         if (response.status == "SUCCESS") {
             const equips = response.data || [];
-            const units = response.units || [];
+            // Always pull units from the full-set response (heroes flow
+            // through the same channel as gear and need the complete data
+            // to populate consistently).
+            const units = (bulkResp && bulkResp.units) || [];
 
-            // Build a map of items keyed by id, starting with the bulk response.
-            const itemsById = new Map();
-            for (const e of equips) {
-                if (e && e.id != null) itemsById.set(e.id, e);
-            }
-            console.log(`Bulk response items: ${itemsById.size}`);
-
-            // Per-buffer fan-out — sequential to be polite to the API, with
-            // a small concurrency cap. Each per-buffer response may surface
-            // items the merged bulk response dropped. Items are unioned by
-            // id; later responses can refine earlier entries (e.g., adding
-            // the "found" flag) but never remove them.
-            if (data.length > 1) {
-                for (let i = 0; i < data.length; i++) {
-                    try {
-                        const r = await postData(api + '/getItems', { data: [data[i]] });
-                        if (r && r.status === "SUCCESS" && Array.isArray(r.data)) {
-                            for (const e of r.data) {
-                                if (!e || e.id == null) continue;
-                                const existing = itemsById.get(e.id);
-                                if (!existing) {
-                                    itemsById.set(e.id, e);
-                                } else if (!existing.f && e.f) {
-                                    // Prefer the variant flagged as "found".
-                                    itemsById.set(e.id, e);
-                                }
-                            }
-                        }
-                    } catch (err) {
-                        console.warn(`per-buffer ${i} request failed:`, err);
-                    }
-                }
-                console.log(`Items after per-buffer union: ${itemsById.size}`);
-            }
-
-            var rawItems = Array.from(itemsById.values()).filter(x => !!x.f);
+            var rawItems = equips.filter(x => !!x.f);
             const lengths = units.map(a => a.length);
             const index = lengths.indexOf(Math.max(...lengths));
 
