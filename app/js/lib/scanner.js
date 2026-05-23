@@ -324,38 +324,36 @@ async function finishedReading(data, scanType) {
             return equips.filter(x => !!x.f).length;
         }
 
-        // Build the subset shapes to try, then fire them all in parallel.
-        // The API calls are independent and the Lambda comfortably handles
-        // a handful of concurrent requests; sequential calls were turning
-        // a 1x-latency scan into a 5x-latency scan for no benefit.
-        const subsets = [{ label: "full", buffers: data }];
+        const candidates = [];
+        const bulkResp = await callApi(data);
+        if (bulkResp) candidates.push({ label: "full", resp: bulkResp });
+        console.log(`Bulk response: found=${countFound(bulkResp)} total=${(bulkResp?.data || []).length}`);
+
         if (data.length > 2) {
+            // Sort buffer indices by length descending, then try cumulative
+            // top-K subsets. The bulk gear dump is concentrated in the
+            // largest 1-3 buffers; dropping the tail often restores items
+            // the small "current view" buffers were knocking out.
             const ordered = data
                 .map((b, i) => ({ b, i, len: b.length }))
                 .sort((a, b) => b.len - a.len);
-            const ks = new Set();
-            ks.add(Math.max(1, Math.ceil(data.length * 0.5)));
-            ks.add(3); ks.add(2); ks.add(1);
-            for (const k of ks) {
+
+            for (const k of [Math.max(1, Math.ceil(data.length * 0.5)), 3, 2, 1]) {
                 if (k >= data.length) continue;
-                subsets.push({
-                    label: `top-${k}`,
-                    buffers: ordered.slice(0, k).map(x => x.b),
-                });
+                const subset = ordered.slice(0, k).map(x => x.b);
+                const r = await callApi(subset);
+                if (r) {
+                    candidates.push({ label: `top-${k}`, resp: r });
+                    console.log(`Top-${k} subset: found=${countFound(r)} total=${(r.data || []).length}`);
+                }
             }
         }
 
-        const results = await Promise.all(subsets.map(s => callApi(s.buffers)));
-        const candidates = [];
-        for (let i = 0; i < subsets.length; i++) {
-            const r = results[i];
-            if (!r) continue;
-            candidates.push({ label: subsets[i].label, resp: r });
-            console.log(`${subsets[i].label} subset: found=${countFound(r)} total=${(r.data || []).length}`);
-        }
-
-        const bulkResp = candidates.find(c => c.label === "full")?.resp || null;
         const best = candidates.sort((a, b) => countFound(b.resp) - countFound(a.resp))[0];
+        if (!best) {
+            // None of the API calls returned SUCCESS — fall back to the
+            // original failure path below by faking the bulk response.
+        }
         const response = best ? best.resp : (bulkResp || { status: "ERROR" });
         console.log(`Picked subset: ${best?.label}, items: ${countFound(response)}`);
 
