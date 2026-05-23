@@ -298,6 +298,13 @@ async function finishedReading(data, scanType) {
             return;
         }
 
+        // Send the full data set first (this is the historical behavior and
+        // gives us the units/heroes list). The API merges all buffers and
+        // returns a single equips list; when later screens emit a filtered
+        // "current view" response, that response can overwrite the bulk
+        // gear dump, capping the visible item count well below the user's
+        // actual inventory. To work around that, after the bulk call we
+        // also call the API once per buffer and union the equips by id.
         const response = await postData(api + '/getItems', {
             data: data
         });
@@ -306,7 +313,43 @@ async function finishedReading(data, scanType) {
         if (response.status == "SUCCESS") {
             const equips = response.data || [];
             const units = response.units || [];
-            var rawItems = equips.filter(x => !!x.f)
+
+            // Build a map of items keyed by id, starting with the bulk response.
+            const itemsById = new Map();
+            for (const e of equips) {
+                if (e && e.id != null) itemsById.set(e.id, e);
+            }
+            console.log(`Bulk response items: ${itemsById.size}`);
+
+            // Per-buffer fan-out — sequential to be polite to the API, with
+            // a small concurrency cap. Each per-buffer response may surface
+            // items the merged bulk response dropped. Items are unioned by
+            // id; later responses can refine earlier entries (e.g., adding
+            // the "found" flag) but never remove them.
+            if (data.length > 1) {
+                for (let i = 0; i < data.length; i++) {
+                    try {
+                        const r = await postData(api + '/getItems', { data: [data[i]] });
+                        if (r && r.status === "SUCCESS" && Array.isArray(r.data)) {
+                            for (const e of r.data) {
+                                if (!e || e.id == null) continue;
+                                const existing = itemsById.get(e.id);
+                                if (!existing) {
+                                    itemsById.set(e.id, e);
+                                } else if (!existing.f && e.f) {
+                                    // Prefer the variant flagged as "found".
+                                    itemsById.set(e.id, e);
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.warn(`per-buffer ${i} request failed:`, err);
+                    }
+                }
+                console.log(`Items after per-buffer union: ${itemsById.size}`);
+            }
+
+            var rawItems = Array.from(itemsById.values()).filter(x => !!x.f);
             const lengths = units.map(a => a.length);
             const index = lengths.indexOf(Math.max(...lengths));
 
