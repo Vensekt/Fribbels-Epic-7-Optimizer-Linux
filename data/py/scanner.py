@@ -10,8 +10,8 @@ existingIpIds = {}
 existingTcpSeqs = {}
 loads = {}
 
-def try_buffer(currAck):
-    buffers = acks[currAck];
+def try_buffer(key):
+    buffers = acks[key];
 
     buffers = sorted(buffers, key=lambda x: x['seq'])
     finalBuffer = b''
@@ -30,34 +30,29 @@ def try_buffer(currAck):
 def check_packet(packet):
     if IP in packet:
         if Raw in packet and packet[Raw].load:
-            currAck = packet.ack
-            currSeq = packet[TCP].seq
+            # Key reassembly by the full TCP connection 4-tuple plus the
+            # ack value, not by ack alone. Ack numbers are per-connection
+            # and can collide across the many short-lived TCP connections
+            # the game opens during a scan; keying on ack alone caused
+            # unrelated streams to be concatenated, producing garbage
+            # buffers the upstream parser drops. This shows up as item
+            # counts going DOWN when more data is captured.
+            key = (
+                packet[IP].src, packet[TCP].sport,
+                packet[IP].dst, packet[TCP].dport,
+                packet.ack,
+            )
             packet_bytes = bytes(packet[Raw].load)
-
-            # packet.show()
-
-            # if existingIpIds.get(packet[IP].id) == None:
-            #     existingIpIds[packet[IP].id] = True
-            # else:
-            #     return
-
-            # if existingTcpSeqs.get(packet[TCP].seq) == None:
-            #     existingTcpSeqs[packet[TCP].seq] = True
-            # else:
-            #     return
 
             if packet_bytes.hex() in loads:
                 return
             else:
                 loads[packet_bytes.hex()] = True
 
-            if currAck in acks:
-                acks[currAck].append({'data': packet_bytes, 'seq': packet[TCP].seq})
+            if key in acks:
+                acks[key].append({'data': packet_bytes, 'seq': packet[TCP].seq})
             else:
-                acks[currAck] = [{'data': packet_bytes, 'seq': packet[TCP].seq}]
-
-                # if 'F' in packet[TCP].flags:
-                #     try_buffer(currAck)
+                acks[key] = [{'data': packet_bytes, 'seq': packet[TCP].seq}]
 
 def terminate():
     os._exit(0)
@@ -110,8 +105,8 @@ loop = True
 while loop:
     line = sys.stdin.readline()
     if "E" in line:
-        for ack in list(acks):
-            try_buffer(ack)
+        for key in list(acks):
+            try_buffer(key)
         loop = False
         print("DONE\n")
         sys.stdout.flush()
