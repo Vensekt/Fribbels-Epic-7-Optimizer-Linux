@@ -39,10 +39,17 @@ STAGE_JAR="$WORK/backend.jar"
 cp "$JAR" "$STAGE_JAR"
 mkdir -p "$WORK/classes"
 javac -source 1.8 -target 1.8 \
+      -g \
       -cp "$STAGE_JAR:$LOMBOK" \
       -d "$WORK/classes" \
       -Xlint:none \
       @"$SOURCES_FILE"
+# -g is REQUIRED: aparapi parses kernel bytecode at runtime to emit
+# OpenCL, and needs the LocalVariableTable to do it correctly. Without
+# debug info, aparapi falls back to a synthetic table ("experimental")
+# that produces invalid OpenCL → clBuildProgram fails → JVM segfaults
+# in libOpenCL during cleanup. This is why GPU acceleration broke after
+# the first jar rebuild.
 
 echo "Splicing rebuilt com/fribbels/** into $JAR ..."
 # Use jar -uf with relative paths from the classes dir
