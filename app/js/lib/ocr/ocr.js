@@ -255,10 +255,11 @@ module.exports = {
                 gear.push(converted);
                 console.log(gear.length + " / " + length);
 
-                const pathSteps = filename.split("\\");
+                const sep = require('path').sep;
+                const pathSteps = filename.split(sep);
                 const details = `TEST ${converted.level} ${converted.enhance} ${converted.rank} ${converted.gear} ${converted.set} --- ${converted.main.type} ${converted.main.value} --- ${converted.substats.map(x => "" + x.type + " " + x.value).join(" ")}`;
                 pathSteps[pathSteps.length-1] = details + ".png";
-                const newFilename = pathSteps.join("\\");
+                const newFilename = pathSteps.join(sep);
 
                 if (testEnabled && filename.includes("TEST")) {
                     const parts = filename.split(".png")[0].split("---")
