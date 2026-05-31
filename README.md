@@ -431,6 +431,11 @@ _________________
     ```
   - If you built from source and updated the Java code, you may also need to rebuild the bundled JAR — see [`LINUX.md` § Rebuilding the Java backend](LINUX.md#rebuilding-the-java-backend).
 
+- **"Java process failed" / "Unable to load Java" the moment you click Optimize**
+  - The Java backend is segfaulting inside the OpenCL driver during aparapi's GPU kernel teardown. Confirm by checking for a JVM crash log next to the AppImage (`hs_err_pid*.log`) — the offending frame will be `libOpenCL.so.1` → `clReleaseCommandQueue`, with `com.aparapi.*` Java frames above it. Earlier alerts usually show `clBuildProgram failed` / `clCreateKernel() failed invalid program`, meaning your OpenCL ICD can't compile aparapi's kernels in the first place.
+  - **Fix:** disable GPU acceleration in the **Settings** tab and click Optimize again. This is a driver-compatibility problem (common with Mesa rusticl, Intel Compute Runtime, and some ROCm builds), not a bug in the optimizer — aparapi's OpenCL 1.x kernels don't compile cleanly on every Linux GPU stack. The CPU path is plenty fast for normal use.
+  - If you want to keep GPU acceleration, try installing POCL as a fallback ICD (`sudo apt install pocl-opencl-icd`) and force it for the session with `OCL_ICD_VENDORS=/etc/OpenCL/vendors/pocl.icd ./FribbelsE7Optimizer-*.AppImage`. `clinfo` will show which ICDs are visible.
+
 - **AppImage refuses to launch with a chrome-sandbox / SUID error**
   - Run with `--no-sandbox`:
     ```bash
