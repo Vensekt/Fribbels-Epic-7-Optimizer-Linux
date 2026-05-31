@@ -49,7 +49,30 @@ When scanning, pick the bridge/tap interface that the emulator uses.
 yarn install
 yarn package-linux
 # → release/FribbelsE7Optimizer-*.AppImage
+# → release/FribbelsE7Optimizer_*_amd64.deb
 ```
+
+## Rebuilding the Java backend
+
+Upstream checks in a prebuilt `data/jar/backend.jar` that drifts behind
+the Java source. When new gear sets get added to `Set.java` (e.g.
+`WarfareSet`, `PursuitSet`), the stale JAR's Gson silently drops items
+with the new set names during merge, and the optimizer kernel — also
+compiled against the old enum — throws `RuntimeException` on Start.
+Symptom: "scan reports N items, optimizer shows N-44 with the new sets
+empty, optimizer crashes on Start."
+
+To rebuild the JAR in place against its bundled dependencies:
+
+```bash
+sudo apt install -y openjdk-8-jdk
+scripts/rebuild-backend.sh
+```
+
+The script recompiles every `com/fribbels/**/*.java` against the JAR's
+existing dependency layer (gson, aparapi, guava, etc.) and splices the
+new classes back in. Run it once after pulling source changes that
+touch the backend, then `yarn package-linux` to refresh the AppImage.
 
 ## Run from source
 
