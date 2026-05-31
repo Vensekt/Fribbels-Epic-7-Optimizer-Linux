@@ -1,8 +1,10 @@
-# Fribbels Epic 7 Gear Optimizer
+# Fribbels Epic 7 Gear Optimizer — Linux build
 
-This is a tool for organizing gear and optimizing gear and unit builds for Epic 7. Gearing units can be time consuming and it's not easy to find optimal combinations of gear within the game, so I made this to help make the gearing process easier.
+This is a Linux port of [fribbels/Fribbels-Epic-7-Optimizer](https://github.com/fribbels/Fribbels-Epic-7-Optimizer). All optimizer features are unchanged from upstream; this fork adds native Linux packaging (AppImage / .deb), Linux-specific packet-capture handling, and a rebuilt Java backend so newer gear sets (Warfare, Pursuit) import correctly.
 
-Please see the [**Getting Started**](https://github.com/fribbels/Fribbels-Epic-7-Optimizer#getting-started) section for instructions on how to use the optimizer.
+For Windows or macOS, use [the upstream project](https://github.com/fribbels/Fribbels-Epic-7-Optimizer) instead.
+
+Please see the [**Getting Started**](#getting-started) section for instructions on how to use the optimizer.
 
 Features include:
  - Automatically import gear and heroes from the game
@@ -19,10 +21,21 @@ Here's what it looks like currently:
 ![](https://i.imgur.com/vQ3tnol.png)
 
 ## Requirements
-- 64-bit Windows or MacOS
-- Java 8+, 64-Bit installed (Please download if you don't yet have it: https://java.com/en/download/manual.jsp. For Windows, use the 'Windows Offline (64-bit)' installer)
 
-Check out the step-by-step video guide on how to install the app: https://www.youtube.com/watch?v=bDjP5eiOfK0
+- 64-bit Linux (tested on Linux Mint / Ubuntu derivatives; the AppImage and `.deb` should work on any glibc-based distro)
+- Java 8 (JRE) — for the optimizer's backend
+  - Debian/Ubuntu/Mint: `sudo apt install openjdk-8-jre`
+  - Fedora: `sudo dnf install java-1.8.0-openjdk`
+  - Arch: `sudo pacman -S jre8-openjdk`
+- Python 3 with `scapy`, plus `libpcap` — for the auto importer's packet capture
+  - Debian/Ubuntu/Mint: `sudo apt install python3 python3-scapy libpcap0.8`
+  - Fedora: `sudo dnf install python3 python3-scapy libpcap`
+  - Arch: `sudo pacman -S python python-scapy libpcap`
+- A way to route Epic 7's traffic through your PC (any one of):
+  - An Android emulator on the same machine (Waydroid recommended)
+  - A Wi-Fi hotspot hosted by your PC, with your phone connected to it
+
+The full Linux installation walkthrough lives in [`LINUX.md`](LINUX.md).
 
 _________________
 
@@ -44,14 +57,10 @@ _________________
     + [Save or Load all optimizer data](#save-or-load-all-optimizer-data)
   * [Getting Started](#getting-started)
     + [Installing the app](#installing-the-app)
-      - [Windows](#windows)
-      - [Mac OS](#mac-os)
     + [Setting up the auto importer](#setting-up-the-auto-importer)
-        * [First time setup for the automatic importer on Windows](#first-time-setup-for-the-automatic-importer-on-windows)
-        * [First time  setup for the automatic importer on Mac](#first-time--setup-for-the-automatic-importer-on-mac)
     + [Using the auto importer](#using-the-auto-importer)
-        * [Running the automatic importer from an Google Play Games Beta / Emulator / M1+ Macbook](#running-the-automatic-importer-from-an-google-play-games-beta--emulator--m1-macbook)
-        * [Running the automatic importer from a phone](#running-the-automatic-importer-from-a-phone)
+        * [From an Android emulator (Waydroid)](#from-an-android-emulator-waydroid)
+        * [From a phone via a PC-hosted Wi-Fi hotspot](#from-a-phone-via-a-pc-hosted-wi-fi-hotspot)
     + [Optimizing a unit](#optimizing-a-unit)
     + [Updating your gear](#updating-your-gear)
     + [Tips to get good optimization results](#tips-to-get-good-optimization-results)
@@ -261,72 +270,85 @@ The app also does autosave to an 'autosave.json' upon changes being made, and wi
 
 ## Getting Started
 
-Please read these instructions carefully! Here is a step by step video guide to go along with the instructions: https://www.youtube.com/watch?v=bDjP5eiOfK0
-
 ### Installing the app
 
-#### Windows
+Pick one of the following:
 
-64 bit Java 8 or above is required:
+**AppImage (works on any glibc distro):**
 
-1. Install **Java 8 - 64 bit** https://java.com/en/download/manual.jsp - Get the Windows Offline (64-bit) installer
-    * After installing, restart your computer (required!)
-2. On the [Releases](https://github.com/fribbels/Fribbels-Epic-7-Optimizer/releases) page, choose the latest release, and download the file that looks like ``FribbelsE7Optimizer-Setup-1.x.x.exe`` then run the installer
-    * Do not download the Source Code options, those won't work
-3. Follow the steps to use either the auto importer
+1. On the [Releases](https://github.com/Vensekt/Fribbels-Epic-7-Optimizer-Linux/releases) page, download `FribbelsE7Optimizer-x.x.x.AppImage`.
+2. Make it executable and run it:
+   ```bash
+   chmod +x FribbelsE7Optimizer-*.AppImage
+   ./FribbelsE7Optimizer-*.AppImage
+   ```
+3. (Optional) If your distro rejects the bundled chrome-sandbox, launch with `--no-sandbox`.
 
-#### Mac OS
+**Debian / Ubuntu / Mint package:**
 
-1. On the [Releases](https://github.com/fribbels/Fribbels-Epic-7-Optimizer/releases) page, choose the latest release, and download the file that looks like ``FribbelsE7Optimizer-x.x.x-mac.dmg``
-    * Do not download the Source Code options, those won't work
-2. Install **Java 8 - 64 bit**
-    * Mac needs both JRE and JDK:
-    * JRE: https://java.com/en/download/manual.jsp - Get the 64-bit offline installer
-    * JDK: https://www.oracle.com/java/technologies/javase/javase8u211-later-archive-downloads.html
-    * After installing, restart your computer (required!)
-  3. Follow the steps to use either the auto importer
+1. Download `FribbelsE7Optimizer_x.x.x_amd64.deb` from the [Releases](https://github.com/Vensekt/Fribbels-Epic-7-Optimizer-Linux/releases) page.
+2. Install:
+   ```bash
+   sudo apt install ./FribbelsE7Optimizer_*_amd64.deb
+   ```
+3. Launch from your application menu, or run `fribbelse7optimizer` from a terminal.
+
+**From source:** see [`LINUX.md`](LINUX.md) for the full build recipe.
+
+After installation, install the JRE if you haven't already — see [Requirements](#requirements).
 
 _________________
 
 ### Setting up the auto importer
 
-The automatic importer is recommended and requires these additional steps:
+The automatic importer captures Epic 7's network traffic via Python + Scapy. Two one-time setup steps are required:
 
-##### First time setup for the automatic importer on Windows
+1. **Install Python 3 + Scapy + libpcap** (see [Requirements](#requirements) for the per-distro command).
 
-Check out the step-by-step video guide to follow along with instructions: https://youtu.be/bDjP5eiOfK0?t=182
+2. **Grant raw-socket capability to Python** so Scapy can sniff without running as root:
+   ```bash
+   sudo setcap cap_net_raw,cap_net_admin=eip $(readlink -f $(which python3))
+   ```
+   Verify:
+   ```bash
+   getcap $(readlink -f $(which python3))
+   # → /usr/bin/python3.X cap_net_admin,cap_net_raw=eip
+   ```
 
-1. Install [Python 3.4+](https://www.python.org/downloads/release/python-392/) using the Windows installer (64-bit) option. Click for [direct download link to 3.9.2](https://www.python.org/ftp/python/3.9.2/python-3.9.2-amd64.exe). **IMPORTANT: Enable the option to add Python to PATH**
-2. Install [Npcap](https://nmap.org/npcap/#download) for Windows. Click for [direct download link](https://nmap.org/npcap/dist/npcap-1.31.exe). During installation, enable the setting to "Support raw 802.11 traffic (and monitor mode) for wireless adapters".
-3. Restart your computer
-
-##### First time  setup for the automatic importer on Mac
-1. Install [Python 3.4+](https://www.python.org/downloads/release/python-392/). This will require extra steps to set python3 as your default. Recommended to use pyenv (https://opensource.com/article/19/5/python-3-default-mac)
-2. Install [Wireshark](https://www.wireshark.org/download.html)
-4. During the Wireshark installation, also install ChmodBPF.pkg: [See image](https://i.imgur.com/FqV0BA5.png)
-3. Restart your computer
+If `setcap` is missing, Scapy will silently capture nothing and the importer will report no data.
 
 ### Using the auto importer
-You can use the auto importer with Google Play Games Beta, any emulator, a phone, or M1+ chip Macbook.
 
-##### Running the automatic importer from an Google Play Games Beta / Emulator / M1+ Macbook
+You can run the auto importer against either an Android emulator on the same machine or a real phone routed through your PC.
 
-Check out the step-by-step video guide to follow along with instructions: https://youtu.be/bDjP5eiOfK0?t=357
+##### From an Android emulator (Waydroid)
 
-1. Install requirements from the instructions above
-2. Leave your emulator open, and close Epic 7
-3. Click Start scanning
-4. Open Epic 7, and load into the lobby
-5. Click Stop scanning
-6. Wait up to 30 secs, then once the data appears, click Export to save it to a "gear.txt"
-7. Import the "gear.txt" with the Merge button
-8. Go to the Gear tab, and use the Level = 0 filter to manually fix any level 0 items
+1. Install [Waydroid](https://docs.waydro.id/usage/install-on-desktops) and install Epic 7 inside it.
+2. With the optimizer open, click **Start scanning**.
+3. Launch Epic 7 in Waydroid and load into the lobby.
+4. (Optional) Open the storage menu and wait ~5 seconds — this is what makes your storage items show up in the import.
+5. Click **Stop scanning**.
+6. Wait up to 30 seconds. When the gear data appears, click **Export** to save it as `gear.txt`.
+7. Click **Merge** and select that `gear.txt`.
+8. On the Gear tab, use the **Level = 0** filter to fix any items the scanner couldn't fully parse.
 
-##### Running the automatic importer from a phone
-1. On Windows 10 machines, enable the Mobile Hotspot setting: [See image](https://i.imgur.com/89o8NfG.png)
-  2. On Mac, enable Internet Sharing in preferences. (May not be available for all machines depending on hardware)
-2. Connect to the mobile hotspot from your phone (The computer must be the one providing the hotspot, and the phone connects to the computer's hotspot)
-3. Follow steps 3-8 in the previous 'Running the automatic importer from an emulator' section, using your phone instead of the emulator
+##### From a phone via a PC-hosted Wi-Fi hotspot
+
+NetworkManager-based desktops can host a Wi-Fi hotspot directly:
+
+```bash
+nmcli device wifi hotspot ssid E7Hotspot password "yourpassword123"
+```
+
+Then:
+
+1. Connect your phone to the `E7Hotspot` SSID.
+2. In the optimizer, click **Start scanning**.
+3. Open Epic 7 on the phone and load into the lobby (open storage if you want storage items imported).
+4. Click **Stop scanning**.
+5. Continue with steps 6–8 from the emulator instructions above.
+
+If you have multiple network interfaces and the scanner picks the wrong one, force it with the `FRIBBELS_SCAN_IFACE` env var — see [`LINUX.md` § Network interface selection](LINUX.md#network-interface-selection).
 
 _________________
 
@@ -370,44 +392,58 @@ _________________
 ## Troubleshooting
 
 ### Automatic importer troubleshooting
-* If it takes longer than 30 seconds or no error shows up:
-  * Make sure the requirements are installed (Python and Npcap for Windows, Python and Wireshark for Mac), or try reinstalling them.
-  * Restart your computer
-* Shows an error
-  * Try it again a couple times, it does fail occasionally
-  * If you're on VPN, either disable it or change encryption to UDP
-  * If you have Hyper-V enabled, there's a couple options:
-    * Try importing on a non Hyper-V machine
-    * Open the View Network Connections menu, and disable the Hyper-V Bluestacks network adapter, then use the mobile hotspot import option.
-    * Or modify the scanner code to hardcode your network interface: https://github.com/fribbels/Fribbels-Epic-7-Optimizer/issues/50#issuecomment-804275567
+
+* **No data captured / importer hangs past 30 seconds**
+  * Verify Python has packet-capture capability:
+    ```bash
+    getcap $(readlink -f $(which python3))
+    # Expect: cap_net_admin,cap_net_raw=eip
+    ```
+    If empty, re-run the `setcap` step from [Setting up the auto importer](#setting-up-the-auto-importer).
+  * Verify Scapy is installed against the python3 you setcap'd:
+    ```bash
+    python3 -c "import scapy; print(scapy.__version__)"
+    ```
+  * Confirm the game traffic is actually reaching your PC. With Epic 7 running on the phone/emulator:
+    ```bash
+    sudo tcpdump -i any -n 'tcp and (port 3333 or port 5222)' -c 20
+    ```
+    If you see no packets, the phone isn't routing through your PC (it may be on mobile data, or your hotspot dropped the route).
+  * Launch the AppImage from a terminal and watch stderr for `scanner: sniffing on [...]` or `scanner: sniff failed: ...`.
+
+* **Scanner picks the wrong network interface**
+  * The scanner auto-prefers wireless interfaces (`wl*`, `wlan*`, `wlp*`) and falls back to all non-virtual interfaces. To force a specific one:
+    ```bash
+    FRIBBELS_SCAN_IFACE=wlp3s0 ./FribbelsE7Optimizer-*.AppImage
+    ```
+    Find your interfaces with `ip -br link`.
+
+* **VPN active** — disable it before scanning; the encrypted tunnel will hide Epic 7's traffic from Scapy.
+
+* **Imported fewer items than your in-game inventory** — make sure you opened the storage menu in the lobby and waited a few seconds before stopping the scan. The game only streams storage items when storage is opened.
 
 ### Optimizer troubleshooting
 
-- If you're seeing Java issues:
-  - Make sure Java 8 - 64 bit is installed.
-  - Make sure that Java is in your path environment variable: https://mkyong.com/java/how-to-set-java_home-on-windows-10/
-  - Try restarting your computer, and reopen the app (there might be an old subprocess still kicking around)
+- **"Subprocess error" / "Optimization request failed" when you click Start**
+  - This means the backend JRE isn't reachable. Confirm Java 8 is installed and on PATH:
+    ```bash
+    java -version
+    ```
+  - If you built from source and updated the Java code, you may also need to rebuild the bundled JAR — see [`LINUX.md` § Rebuilding the Java backend](LINUX.md#rebuilding-the-java-backend).
 
-- If you're having trouble running the app after downloading:
-  - You might have downloaded the Source code instead of the installer. Go to https://github.com/fribbels/Fribbels-Epic-7-Optimizer/releases and click on the 'FribbelsE7Optimizer-Setup-1.x.x.exe' file (for Windows, use the dmg for mac), not the Source code
+- **AppImage refuses to launch with a chrome-sandbox / SUID error**
+  - Run with `--no-sandbox`:
+    ```bash
+    ./FribbelsE7Optimizer-*.AppImage --no-sandbox
+    ```
+  - Or extract the AppImage and `chmod u+s` the bundled `chrome-sandbox` binary.
 
-- If you see a "Error: EPERM: operation not permitted" error pop up while importing, there are a couple potential fixes:
-  - Restart your computer, especially if you installed Java recently
-  - Your antivirus might be blocking the app, try disabling it. I've seen issues with Avast specifically, and disabling Avast temporarily solves it.
-  - Your file or folder contents might be compressed, uncheck this box on the folder: https://i.imgur.com/kSzTqek.png
-  - Run the app as administrator
-  - Move the app folder to a new file location
-  - Disable Windows security randomware protection: https://www.majorgeeks.com/content/page/how_to_enable_or_disable_windows_defender_exploit_guard_controlled_folder_access.html
+- **Newest gear sets (Warfare, Pursuit) show 0 items after a successful scan**
+  - This is the stale-JAR symptom — upstream's bundled `backend.jar` predated those sets. The Linux build ships a rebuilt JAR that includes them; if you're running from a stale source checkout, re-run `scripts/rebuild-backend.sh` and rebuild the AppImage.
 
-- If you get a error that contains "Current relative path is C:\Windows\system32..."
-  - I don't actually know the cause of this one, but one way to fix it is copying the data/tessdata/eng.traineddata/eng.traineddata file into the system32 path that its looking for
-
-- If you're having trouble using it on Mac - "The application "FribbelsE7Optimizer" can't be opened":
-  - Right click the app and click Open from the menu
-  - Try unzipping the file using Unarchiver from the app store instead of Archive Utility. [Example](https://i.imgur.com/y9uGQcH.png)
-
-- If you see a bunch of optimization result rows with the same stats, you probably have duplicate gear. [Example](https://i.imgur.com/hUcyN1I.png)
-  - Use the Duplicates filter on the Gear screen to find and fix your duplicate gear. Alternatively Overwrite/Merge your gear data to start over. Be careful when using the Append option, because that can result in duplicate gear being added. Most of the time you'll want to use Merge.
+- **Duplicate-looking rows in the optimizer results**
+  - You probably have actual duplicate gear in your DB. [Example](https://i.imgur.com/hUcyN1I.png)
+  - Use the **Duplicates** filter on the Gear tab to find and fix them. Prefer **Merge** over **Append** when re-importing, since Append can create duplicates.
 
 ## Contributing to the project
 
