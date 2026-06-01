@@ -235,7 +235,11 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
         this.heroDb = heroDb;
         this.itemDb = itemDb;
         instance = this;
-        optimizationDbs = new HashMap<>();
+        // ConcurrentHashMap because /prepareExecution and /deleteExecution
+        // can race across HTTP worker threads (notably from multi-optimizer,
+        // which spins up one execution per hero). Plain HashMap under
+        // concurrent writes can corrupt its internal table.
+        optimizationDbs = new ConcurrentHashMap<>();
 
         ExecutorService t = Executors.newFixedThreadPool(3);
 
@@ -262,6 +266,7 @@ public class OptimizationRequestHandler extends RequestHandler implements HttpHa
                     final IdRequest deleteExecutionRequest = parseRequest(exchange, IdRequest.class);
                     sendResponse(exchange, deleteExecutionRequest(deleteExecutionRequest));
                     System.out.println("Sent response");
+                    return;
                 case "/optimization/optimizationRequest":
                     Main.interrupt = false;
                     final OptimizationRequest optimizationRequest = parseRequest(exchange, OptimizationRequest.class);
