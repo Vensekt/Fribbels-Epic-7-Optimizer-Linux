@@ -57,3 +57,6 @@ npm-debug.log.*
 # .vscode
 .vscode
 .idea
+
+# Internal architecture notes (private to fork maintainer)
+docs/internals/
