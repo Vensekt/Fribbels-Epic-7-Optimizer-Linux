@@ -1,6 +1,7 @@
 # Fribbels Epic 7 Gear Optimizer — Linux build
 
-This is a Linux port of [fribbels/Fribbels-Epic-7-Optimizer](https://github.com/fribbels/Fribbels-Epic-7-Optimizer). All optimizer features are unchanged from upstream; this fork adds native Linux packaging (AppImage / .deb), Linux-specific packet-capture handling, and a rebuilt Java backend so newer gear sets (Warfare, Pursuit) import correctly.
+This is a Linux port of [fribbels/Fribbels-Epic-7-Optimizer](https://github.com/fribbels/Fribbels-Epic-7-Optimizer). All optimizer features on main are unchanged from upstream; this fork adds native Linux packaging (AppImage / .deb), Linux-specific packet-capture handling, and a rebuilt Java backend so newer gear sets (Warfare, Pursuit) import correctly.
+The Experimental branch contains new features that haven't been thoroughly tested yet.
 
 For Windows or macOS, use [the upstream project](https://github.com/fribbels/Fribbels-Epic-7-Optimizer) instead.
 
